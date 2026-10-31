@@ -3,12 +3,12 @@ title: "evnx cloud"
 section: commands
 order: 9
 publishedAt: "2026-09-16"
-updatedAt: "2026-10-29"
+updatedAt: "2026-11-01"
 excerpt: "Push and pull encrypted .env files across machines and CI. Encryption happens locally, version numbers are authenticated, and the server only ever holds ciphertext."
 difficulty: intermediate
 timeToComplete: "12 minutes"
 tags: ["cloud", "sync", "encryption", "ci-cd", "versioning", "evnx"]
-commands: ["auth status", "auth token create", "cloud", "cloud audit", "cloud diff", "cloud export", "cloud history", "cloud link", "cloud pull", "cloud push", "cloud run", "cloud status", "cloud unlink", "cloud watch", "convert", "diff", "run", "spec init", "vault list"]
+commands: ["auth status", "auth token create", "cloud", "cloud audit", "cloud diff", "cloud export", "cloud history", "cloud link", "cloud pull", "cloud push", "cloud run", "cloud status", "cloud unlink", "cloud watch", "convert", "diff", "restore", "run", "spec init", "vault list"]
 evnxVersion: "0.10.18"
 prerequisites:
   - commands/auth
@@ -181,7 +181,7 @@ one. The file written is always printed.
   <Option flag="--file" type="path">Where to write the decrypted file. Derived as above; `-` writes to stdout and creates no file. Short form `-f`.</Option>
   <Option flag="--env-name" type="string">Write `.env.&lt;NAME&gt;` instead of the derived or default file.</Option>
   <Option flag="--version" type="number" default="latest">Version to pull, **1 or more**.</Option>
-  <Option flag="--force" type="flag">Overwrite the target without asking. The replaced file is still kept as `.bak` (**v0.11.0+**).</Option>
+  <Option flag="--yes" type="flag">Overwrite the target without asking. Short form `-y`; `--force` is the same flag (**v0.12.0+**; before, only `--force`). The replaced file is still kept as `.bak` (**v0.11.0+**).</Option>
   <Option flag="--gitignore" type="flag">**v0.10.18+** — add the pulled file to `.gitignore` without asking.</Option>
   <Option flag="--no-gitignore" type="flag">**v0.10.18+** — skip the `.gitignore` check.</Option>
   <Option flag="--password-stdin" type="flag">Read the master password from stdin instead of prompting.</Option>
@@ -220,13 +220,21 @@ A pull of identical content says `.env is already up to date.` and writes nothin
 a file that **differs**, `pull` says so the right way round, and asks:
 
 ```text
-  ! .env exists and differs from version 2 of my-api/production (production); pulling replaces it.
-Overwrite .env? (the current file is kept as a .bak copy) [y/N]
+  ! ./.env exists and differs from version 2 of my-api/production (production); pulling replaces it.
+Overwrite ./.env? (the current file is kept as a .bak copy) [y/N]
 ```
 
 (**v0.11.0+**; it used to print the push warning "writing to a production vault from
-./.env", which describes the opposite direction.) With no terminal it stops and names
-`--force`. Whichever way the yes comes, **the replaced file is kept as `.env.bak`**
+./.env", which describes the opposite direction.) **v0.12.0+**: this is the same
+question, in the same words, that [`evnx restore`](/guides/commands/restore#replacing-an-existing-file)
+asks. Answering no leaves the file alone and **exits `4`**, as `restore` does:
+
+```text
+  Cancelled; ./.env was not changed.
+```
+
+Before 0.12.0 a declined pull exited `0`, so a script could not tell that nothing was
+written. With no terminal it stops (exit `2`) and names `--yes`. Whichever way the yes comes, **the replaced file is kept as `.env.bak`**
 (then `.bak.2`, …), protected by `.gitignore` like the file itself, and the pull says so:
 `✓ kept the previous ./.env as ./.env.bak`. The write is atomic, goes through a symlink
 rather than replacing it, and an existing file keeps its mode, with a warning if others
@@ -717,6 +725,19 @@ already exists — otherwise you are testing your credential store, not the serv
 
 Never put your master password in a pipeline unless the job genuinely needs plaintext.
 
+**v0.12.0+** — `EVNX_MASTER_PASSWORD` unlocks a vault without a prompt, for a machine
+that has no terminal and cannot use the pipe below. Every use prints a warning to
+stderr, never the value:
+
+```text
+  ! using the master password from EVNX_MASTER_PASSWORD. Any process that can read this environment can read it; in CI, prefer an API token (EVNX_TOKEN).
+```
+
+It is a variable of its own on purpose: `EVNX_PASSWORD`, which `backup` and `restore`
+read, never unlocks a vault, so one leaked variable cannot open both. `--password-stdin`
+wins when both are given; changing or undoing a master password always asks; and a
+command started by `evnx run` or `evnx cloud run` never inherits it.
+
 **v0.11.0+** — a command that needs the master password and has no terminal to ask on
 says how to pipe it, with your own command and flags:
 
@@ -753,14 +774,14 @@ The examples keep the id in a CI variable; it is not a secret.
     EVNX_PASSWORD: ${{ secrets.EVNX_MASTER_PASSWORD }}
     EVNX_VAULT_ID: ${{ vars.EVNX_VAULT_ID }}
   run: |
-    printf '%s' "$EVNX_PASSWORD" | evnx cloud pull --vault "$EVNX_VAULT_ID" --file .env --force --password-stdin
+    printf '%s' "$EVNX_PASSWORD" | evnx cloud pull --vault "$EVNX_VAULT_ID" --file .env --yes --password-stdin
 ```
   </Tab>
   <Tab label="GitLab CI">
 ```yaml
 fetch-secrets:
   script:
-    - printf '%s' "$EVNX_PASSWORD" | evnx cloud pull --vault "$EVNX_VAULT_ID" --file .env --force --password-stdin
+    - printf '%s' "$EVNX_PASSWORD" | evnx cloud pull --vault "$EVNX_VAULT_ID" --file .env --yes --password-stdin
   variables:
     EVNX_TOKEN: $EVNX_TOKEN
     EVNX_PASSWORD: $EVNX_MASTER_PASSWORD
@@ -779,7 +800,8 @@ Pulling is a GET, so a read-only token handles deploys perfectly. Give a job a r
   `evnx auth token create … -q` prints the new token alone on stdout. ⚠️ A script
   that read a `✓ pushed …` line from stdout under `-q` now gets nothing.
 - **Every confirmation names its flag when there is no terminal**: `--yes` for
-  `delete-version`, and `--force` for a `pull` over a file that differs.
+  `delete-version`, and for a `pull` over a file that differs (`--yes` since
+  **v0.12.0**; `--force` still works).
 - **A job that pushes the default `.env` into a production vault** needs `--yes`,
   or better, `--file` naming the file it means.
 </Callout>

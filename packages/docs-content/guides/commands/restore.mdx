@@ -3,7 +3,7 @@ title: "evnx restore"
 section: commands
 order: 4
 publishedAt: "2026-03-10"
-updatedAt: "2026-10-29"
+updatedAt: "2026-11-01"
 excerpt: "Decrypt a backup made by evnx backup back into a .env file. Never replaces a file silently, keeps the one it replaces, says why a backup will not open, and has exit codes a script can branch on."
 difficulty: beginner
 timeToComplete: "5 minutes"
@@ -133,25 +133,34 @@ nothing to do:
 ```text
 ✓ Decryption successful
   ✓ Decryption key cleared from memory
-✓ .env is already up to date — nothing was written
+✓ ./.env is already up to date — nothing was written
 ```
 
 **Different, with a terminal.** evnx asks; Enter means no:
 
 ```text
-! Output file already exists: .env
-Overwrite .env? (the current file is kept as a .bak copy) [y/N] yes
-· Kept the previous .env as .env.bak
+! Output file already exists: ./.env
+Overwrite ./.env? (the current file is kept as a .bak copy) [y/N] yes
+· Kept the previous ./.env as .env.bak
 
 ✓ Restored 5 variable(s) to .env
 ```
 
-Answering no (or Enter) exits `4` and changes nothing.
+Answering no (or Enter) exits `4` and changes nothing:
+
+```text
+  Cancelled; ./.env was not changed.
+· Tip: use --output <path> to restore to a different location.
+```
+
+**v0.12.0+** — this is the question [`evnx cloud pull`](/guides/commands/cloud#replacing-a-file-that-differs)
+asks over a file that differs, in the same words, and a declined pull now exits `4`
+too. `--force` is accepted as the same flag as `--yes`, as in `cloud pull`.
 
 **Different, in a script.** With no terminal to ask on, the run stops:
 
 ```text
-! Output file already exists: .env
+! Output file already exists: ./.env
 Error: there is no terminal to confirm with.
 
 Add --yes to replace it (the current file is kept as a .bak copy), or restore somewhere else with --output <path>:
@@ -167,7 +176,7 @@ evnx restore .env.backup --password-file backup.key --yes
 ```
 
 ```text
-· Kept the previous .env as .env.bak
+· Kept the previous ./.env as .env.bak
 
 ✓ Restored 5 variable(s) to .env
 ```

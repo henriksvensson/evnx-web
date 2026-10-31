@@ -3,12 +3,12 @@ title: "evnx doctor"
 section: commands
 order: 4
 publishedAt: "2024-03-15"
-updatedAt: "2026-10-29"
+updatedAt: "2026-11-01"
 excerpt: "Check the setup around your env files: ignored and untracked by git, valid dotenv, private permissions, a committed template, and the project around them. Repairs .gitignore and file modes with --fix; JSON for CI."
 difficulty: beginner
 timeToComplete: "8 minutes"
 tags: ["doctor", "diagnostics", "env", "security", "ci-cd", "setup"]
-commands: ["backup", "diff", "doctor", "init", "scan", "sync", "validate"]
+commands: ["backup", "diff", "doctor", "init", "parse", "scan", "sync", "validate"]
 evnxVersion: "0.10.18"
 prerequisites:
   - getting-started/installation
@@ -89,7 +89,7 @@ content and left alone, because it is ciphertext.
      → git rm --cached .env, commit, then rotate every secret it held (`evnx scan .` lists them)
      .env.bak is NOT in .gitignore (security risk): a plaintext copy of an env file
      .env.production is NOT in .gitignore (security risk)
-     .env.production: Line 2: invalid syntax 'this line is not dotenv'
+     .env.production: Line 2: Invalid format: missing '=' separator
 ```
 
 Each of these is an **error**:
@@ -99,8 +99,12 @@ Each of these is an **error**:
   .gitignore", with the commands that fix it, including rotating the secrets.
 - **Not ignored.** doctor asks git (`git check-ignore`), so patterns and negations
   count exactly as git counts them.
-- **Invalid syntax**, named by file and line. A file that cannot be read, or is not
-  UTF-8, is an error that says which. `.env.json` and `.env.yaml` get no dotenv check.
+- **Invalid syntax**, named by file and line. **v0.12.0+**: these are the parser's own
+  messages, the ones `evnx validate` and `evnx parse` give, so the three commands agree
+  on what a broken line is, and every problem in a file is listed. The line's text is no
+  longer printed: a line without `=` is sometimes a pasted secret. A file that cannot be
+  read, or is not UTF-8, is an error that says which. `.env.json` and `.env.yaml` get
+  no dotenv check.
 
 **Readers that disagree** (**v0.11.0+**) — one line, a warning, when a program the
 project uses reads some line of `.env` differently from evnx:
@@ -259,7 +263,7 @@ nothing at all.
      → git rm --cached .env, commit, then rotate every secret it held (`evnx scan .` lists them)
      .env.bak is NOT in .gitignore (security risk): a plaintext copy of an env file
      .env.production is NOT in .gitignore (security risk)
-     .env.production: Line 2: invalid syntax 'this line is not dotenv'
+     .env.production: Line 2: Invalid format: missing '=' separator
 
   !  Check .env.example exists and is Git-tracked
      .env.example is not tracked in Git — run: git add .env.example
@@ -370,7 +374,7 @@ evnx doctor --fix
   ✗  Validate .env file existence, security, and syntax
      .env is tracked by git: its values are in the repository history
      → git rm --cached .env, commit, then rotate every secret it held (`evnx scan .` lists them)
-     .env.production: Line 2: invalid syntax 'this line is not dotenv'
+     .env.production: Line 2: Invalid format: missing '=' separator
      ! not fixed: --fix changed what it could; the problem above remains
 
   …

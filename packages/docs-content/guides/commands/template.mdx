@@ -3,7 +3,7 @@ section: "commands"
 order: 4
 title: "evnx template"
 publishedAt: "2026-03-11"
-updatedAt: "2026-10-29"
+updatedAt: "2026-11-01"
 excerpt: "Reference documentation for the evnx template command: generate configuration files from templates with variable substitution and filters."
 difficulty: "intermediate"
 timeToComplete: "10 minutes"
@@ -382,6 +382,41 @@ undefined one is the error described above.
 x=$HOST  y=$host  z=${HOST}      →      x=db  y=$host  z=db
 ```
 
+**v0.12.0+** — a template is read **once, left to right**. A value is inserted and
+never read again, so a value that itself contains `${OTHER}` or `{{OTHER}}` lands in
+the output exactly as it is in `.env`, and the order of keys in `.env` can no longer
+change the result. Before 0.12.0 each key was substituted in turn over the whole text,
+so one value could be expanded by the next key's pass.
+
+### Writing a reference literally
+
+**v0.12.0+** — a backslash before a reference makes it text:
+
+```text
+# .env:  HOST=db
+a=\${HOST} b=\{{HOST}} c=\$HOST d=\\${HOST} e=C:\\dir
+```
+
+```text
+a=${HOST} b={{HOST}} c=$HOST d=\db e=C:\\dir
+```
+
+- `\${X}`, `\{{X}}` and `\$X` print the reference itself, without the backslash.
+- `\\` **directly before a reference** is one backslash followed by the value (`d=`).
+- Any other backslash is ordinary text and is left alone, so JSON, YAML and Windows
+  paths keep theirs (`e=`).
+
+⚠️ Before 0.12.0, `\$NAME` rendered as `\` followed by the value.
+
+### Shell-style defaults are written through
+
+`${NAME:-fallback}` is shell syntax, not an evnx reference. It is copied into the
+output unchanged, and **v0.12.0+** says so, naming the line:
+
+```text
+! sh.tmpl line 1: ${HOST:-localhost} is written through as it is. evnx's fallback is {{NAME|default:value}}
+```
+
 ---
 
 ## Filter transformations
@@ -403,39 +438,55 @@ Apply a transformation to a value with a pipe (`|`) inside double braces:
 | `\|bool` | **v0.10.5+** — `true` or `false` from a fixed list of words; anything else is an error | `on` → `true`, `n` → `false` |
 | `\|int` | A whole number; anything else is an error | `8000` → `8000` |
 | `\|json` | A quoted, escaped JSON string | `hello "world"` → `"hello \"world\""` |
+| `\|yaml` | **v0.12.0+** — a double-quoted YAML string, safe whatever the value holds | `say "hi": ok` → `"say \"hi\": ok"` |
+| `\|toml` | **v0.12.0+** — a TOML basic string | `say "hi"` → `"say \"hi\""` |
+| `\|sh` | **v0.12.0+** — a single-quoted shell word, safe to paste into a command | `it's` → `'it'\''s'` |
 | `\|default:VALUE` | `VALUE` when the variable is empty or not defined; its own value otherwise | `{{POOL\|default:10}}` → `10` |
 
 `evnx template --help` prints the same list.
 
-### One filter per placeholder
+### Chaining filters
 
-Chained filters are an **error** (**v0.10.5+**), and nothing is written:
+**v0.12.0+** — filters chain, **left to right**: each one takes the previous one's
+result.
 
-```console
-$ evnx template --input chain.tmpl --output app.yaml
-...
-Error: chain.tmpl has a filter evnx cannot apply:
-  line 1: {{APP_ENV|upper|json}}: chained filters are not supported; use one filter per placeholder
-
-Filters: upper, lower, title, capitalize, bool, int, json, default:VALUE.
-Nothing was written to app.yaml.
-
-No verdict: evnx did not finish. This is not a clean result.
+```text
+# .env:  APP_ENV=production   PORT=
+env: {{APP_ENV|upper|json}}
+port: {{PORT|default:8080|int}}
 ```
 
-A filter after a default is a chain too: `{{PORT|default:8080|int}}` and
-`{{APP_ENV|default:x | upper}}` are reported the same way. A pipe followed by anything
+```text
+env: "PRODUCTION"
+port: 8080
+```
+
+A `|default:` replaces a value that is missing or empty, and the filters after it apply
+to whatever it produced. Each `|default:` uses its own text: with `E` empty,
+`{{E|default:one}} {{E|default:two}}` renders `one two`. A pipe followed by anything
 that is not a filter name stays part of the default's text, so `{{SEP|default:a|b}}`
 renders `a|b` when `SEP` is empty.
 
-Before 0.10.5, `{{APP_ENV|upper|json}}` was copied into the output unchanged with exit
-`0`, and `{{PORT|default:8080|int}}` rendered `8080|int`. Chaining is still not
-supported in 0.11.0; it comes with the new template engine planned for 0.12.0. Until
-then, a value that needs both a fallback and `|int` or `|bool` gets its fallback in
-`.env`.
+Before 0.12.0 a chain was an error (from 0.10.5) or was copied into the output
+unchanged (before that).
 
-Each `|default:` uses its own text (**v0.11.0+**): with `E` empty,
-`{{E|default:one}} {{E|default:two}}` renders `one two`. It rendered `one one`.
+### Quoting for the file you are writing
+
+`|json`, `|yaml`, `|toml` and `|sh` quote a value for that format, so a value with
+quotes, colons or a newline cannot break the file:
+
+```text
+# .env:  GREETING=say "hi": it's ok
+yaml: {{GREETING|yaml}}
+toml = {{GREETING|toml}}
+sh: echo {{GREETING|sh}}
+```
+
+```text
+yaml: "say \"hi\": it's ok"
+toml = "say \"hi\": it's ok"
+sh: echo 'say "hi": it'\''s ok'
+```
 
 ### Unknown filters are errors
 
@@ -454,7 +505,7 @@ Error: bad.tmpl has 3 filters evnx cannot apply:
   line 2: {{ APP_ENV | Upper }}: unknown filter `Upper` — did you mean `upper`?
   line 3: {{REGION|bogus}}: unknown filter `bogus`
 
-Filters: upper, lower, title, capitalize, bool, int, json, default:VALUE.
+Filters: upper, lower, title, capitalize, bool, int, json, yaml, toml, sh, default:VALUE. They chain left to right.
 Nothing was written to app.yaml.
 
 No verdict: evnx did not finish. This is not a clean result.
@@ -626,7 +677,7 @@ evnx template \
 | Code | Meaning | Use case |
 |------|---------|----------|
 | `0` | ✅ Written — or, with `--dry-run`, it would have been | Success in scripts/CI. Also returned when placeholders were written through with `--allow-unresolved` |
-| `2` | 🚨 Nothing was written | A missing template or env file, a bad line in the env file, an unknown or chained filter, a bad `\|bool` or `\|int` value, an unresolved placeholder (without `--allow-unresolved`), a missing directory without `--mkdir`, an `--output` that is the template or the env file, I/O or permission errors |
+| `2` | 🚨 Nothing was written | A missing template or env file, a bad line in the env file, an unknown filter, a bad `\|bool` or `\|int` value, an unresolved placeholder (without `--allow-unresolved`), a missing directory without `--mkdir`, an `--output` that is the template or the env file, I/O or permission errors |
 
 `--dry-run` exits with the code the real run would.
 
@@ -670,7 +721,7 @@ Error: bad.tmpl has 3 filters evnx cannot apply:
 ```
 
 **Solution**: Correct the filter on the line named; the list of filters follows the
-error. A chained filter (`{{X|upper|json}}`) is reported the same way: keep one.
+error.
 
 ### Filter value errors
 
