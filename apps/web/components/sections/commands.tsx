@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { docsUrl } from "@evnx/config";
 import { commands } from "@evnx/content";
+import { Spot } from "@/components/art/spots";
 import { SectionHeading } from "./section-shell";
 
 export function Commands() {
@@ -16,6 +17,7 @@ export function Commands() {
             href={docsUrl(`commands/${c.id}`)}
             className="group p-5 rounded-xl border border-border-muted bg-bg-surface hover:border-brand-500 transition-colors"
           >
+            {c.spot && <Spot id={c.spot} size={44} className="mb-4" />}
             <h3 className={c.mono ? "font-mono text-sm text-brand-400 mb-2" : "font-medium mb-2"}>
               {c.title}
             </h3>

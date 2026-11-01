@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Check, X } from "lucide-react";
 import { docsUrl } from "@evnx/config";
 import { trust } from "@evnx/content";
+import { Cloud } from "@/components/art/spots";
 import { SectionHeading } from "./section-shell";
 
 /**
@@ -17,11 +18,15 @@ export function Trust() {
     <>
       <SectionHeading heading={trust.heading} lede={trust.lede} />
 
-      <div className="p-6 rounded-xl border border-success/30 bg-success/5 mb-10 max-w-3xl">
+      <div className="flex flex-col sm:flex-row gap-5 sm:items-center p-6 rounded-xl border border-success/30 bg-success/5 mb-10 max-w-3xl">
+        {/* The cloud holds only scrambled bars: data it cannot read. */}
+        <Cloud size={72} className="shrink-0" />
+        <div>
         <h3 className="font-serif text-xl font-bold mb-2 text-text-primary">
           {trust.guarantee.heading}
         </h3>
         <p className="text-text-secondary leading-relaxed">{trust.guarantee.body}</p>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-start">

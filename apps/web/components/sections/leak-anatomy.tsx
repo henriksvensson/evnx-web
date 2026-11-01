@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { leakAnatomy } from "@evnx/content";
 import type { TimelineEntry } from "@evnx/content";
+import { LeakScene } from "@/components/art/leak-scene";
 import { SectionHeading } from "./section-shell";
 
 const DOT: Record<TimelineEntry["level"], string> = {
@@ -42,6 +43,8 @@ export function LeakAnatomy() {
           </button>
         ))}
       </div>
+
+      <LeakScene blocked={withEvnx} />
 
       <ol className="max-w-3xl border-l border-border-muted">
         {entries.map((e) => (

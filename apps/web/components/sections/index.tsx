@@ -4,7 +4,9 @@ import { TALKS } from "@evnx/config";
 import { hasApprovedTestimonials } from "./testimonials";
 
 import { Hero, HeroProof } from "./hero";
+import { Road } from "./road";
 import { LeakAnatomy } from "./leak-anatomy";
+import { Stories } from "./stories";
 import { Audit } from "./audit";
 import { Ci } from "./ci";
 import { Commands } from "./commands";
@@ -32,7 +34,9 @@ export const SECTIONS: Record<SectionId, ComponentType> = {
       </>
     );
   },
+  road: Road,
   "leak-anatomy": LeakAnatomy,
+  stories: Stories,
   audit: Audit,
   ci: Ci,
   commands: Commands,

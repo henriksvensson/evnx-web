@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { ImageResponse } from "next/og";
 
 export const alt = "evnx documentation";
@@ -19,6 +21,11 @@ export const contentType = "image/png";
 export default async function Image() {
   const title = "Every command, flag and exit code";
   const kicker = "Documentation";
+  // The simple mark on its tile, from evnx-logo-kit. A PNG, not the SVG: the
+  // renderer drops the SVG's drop-shadow filter, which is what makes the key
+  // read as hooked through the shackle.
+  const mark = await readFile(join(process.cwd(), "public/brand/evnx-icon-192.png"));
+  const markSrc = `data:image/png;base64,${mark.toString("base64")}`;
 
   return new ImageResponse(
     (
@@ -35,7 +42,7 @@ export default async function Image() {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          <div style={{ width: 16, height: 28, background: "#f2711c", borderRadius: 2 }} />
+          <img src={markSrc} width={56} height={56} alt="" />
           <div style={{ fontSize: 30, color: "#e6edf3", fontWeight: 600 }}>evnx</div>
           <div style={{ fontSize: 26, color: "#8b949e" }}>docs</div>
         </div>
@@ -44,7 +51,7 @@ export default async function Image() {
           <div
             style={{
               fontSize: 24,
-              color: "#f2711c",
+              color: "#e8652a",
               textTransform: "uppercase",
               letterSpacing: 2,
               marginBottom: 20,

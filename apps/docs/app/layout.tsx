@@ -31,7 +31,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <header className="border-b border-border-subtle sticky top-0 z-20 bg-bg-base/90 backdrop-blur">
           <div className="container-base flex items-center justify-between h-14 gap-5">
             <Link href="/" className="flex items-center gap-2 font-mono font-medium">
-              <span className="w-2 h-4 bg-brand-500 rounded-sm" aria-hidden />
+              {/* The simple mark from evnx-logo-kit: no name inside the shield
+                  below 48 px. Decorative; the link's name is the text beside it. */}
+              <img src="/brand/evnx-mark-simple.svg" alt="" width={23} height={28} />
               {SITE.name}
               <span className="text-text-muted text-sm">docs</span>
             </Link>

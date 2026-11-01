@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Github, Star } from "lucide-react";
 import { EVNX_VERSION, GITHUB_URL, CRATES_IO_URL, NPM_URL, PYPI_URL, AGENT_SKILLS_URL } from "@/lib/config";
 import { TESTIMONIALS_ENABLED, docsUrl } from "@evnx/config";
+import { BrandMark } from "./brand-mark";
 
 // ── TypeScript fix: every link has `external`, defaulting to false ────────────
 // The previous LINKS object mixed { href, label } and { href, label, external }
@@ -95,11 +96,7 @@ export async function Footer() {
           {/* Brand */}
           <div>
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-7 h-7 bg-brand-500 rounded flex items-center justify-center">
-                <span className="font-mono font-bold text-black text-xs">
-                  ev
-                </span>
-              </div>
+              <BrandMark />
               <span className="font-mono font-bold text-text-primary">
                 evnx
               </span>

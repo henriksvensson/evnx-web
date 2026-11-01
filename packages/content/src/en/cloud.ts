@@ -23,16 +23,19 @@ export const cloud: SectionHeading & {
   capabilities: [
     {
       id: "push-pull",
+      spot: "cloud",
       title: "Push and pull, byte for byte",
       body: "What you pull is what you pushed — the version number is authenticated into the ciphertext, so a server cannot replay an old one as current.",
     },
     {
       id: "share",
+      spot: "safe",
       title: "Share with a teammate",
       body: "The vault key is wrapped for each member with a hybrid X25519 + ML-KEM-768 scheme, so a share stays sealed even against a future quantum attacker.",
     },
     {
       id: "ci",
+      spot: "server",
       title: "No file in CI",
       body: "evnx cloud run injects secrets straight into a subprocess. Nothing is written to disk and nothing appears in the process arguments.",
     },
