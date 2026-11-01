@@ -100,7 +100,7 @@ DB_HOST=db.internal
 DB_PORT=5433
 
 # === Cache ===
-REDIS_URL=
+# REDIS_URL=
 
 # === Auth ===
 JWT_SECRET="dev-only" # rotated monthly
@@ -115,11 +115,48 @@ Run it again and the file is not touched: same content, same modification time.
 |-----------------|-------------|--------|
 | A heading, comment or blank line | — | Copied in place, with the file's line ending |
 | `KEY=…` | `KEY=…` | The file's line, unchanged, at the template's position |
-| `KEY=…` | Missing | `KEY=`, empty. **The template's value is never copied**, nor its inline comment |
+| `KEY=…` | Missing | A `# KEY=` placeholder. [It stays absent](#keys-the-file-lacks), and **the template's value is never copied**, nor its inline comment |
 | — | `KEY=…` | Kept at the end, in the file's order, under `# Environment-specific settings` |
 
 The heading for extra keys belongs to evnx: it is written when there are extra keys and
 removed when there are none left.
+
+Key order comes from the template, so list variables there in an order that works if one
+refers to another: Docker Compose resolves `${VAR}` from the top down. A key only your file
+has moves to the end, below any template key that refers to it.
+
+---
+
+## Keys the file lacks
+
+A missing key gets a comment that holds its place, under the template's documentation for
+it. Nothing a program reads changes, so aligning a file cannot change how an app behaves.
+
+```text
+# === Cache ===
+# REDIS_URL=
+```
+
+It is not written as a blank `KEY=`, because programs treat a blank differently from an
+absent key:
+
+| Reader | Absent, or `# KEY=` | Blank `KEY=` |
+|--------|---------------------|--------------|
+| `process.env.KEY ?? "d"` in Node | `d` | Empty string |
+| `${KEY-d}` in Docker Compose | `d` | Empty string |
+| `${KEY?}` in Docker Compose | Refused | Accepted |
+| A later `--env-file` in Node | Keeps an earlier real value | Wipes it |
+| `evnx sync --check`, `evnx diff` | Report the key as missing | Report nothing |
+| `evnx sync --direction reverse` | Fills in the template's value | Never fills it |
+
+To give the key a value, uncomment the line and fill it in, or run
+`evnx sync --direction reverse`, which adds the template's value at the end of the file, and
+then align again. `align` drops the placeholder once the key has a value. Sync's
+`# Added by evnx sync` line sits directly above the key, so it is kept as your comment until
+you delete it.
+
+Only exactly `# KEY=`, for a key the template has, is treated as a placeholder.
+`# KEY=old-value` is an ordinary comment, and it is kept.
 
 ---
 
@@ -153,6 +190,7 @@ API_URL=https://example.test
 |----------|-----|---------------|
 | To tidy a file | `evnx align --env .env` | never (it writes) |
 | To see what that would do | `evnx align --env .env --dry-run` | never |
+| To find keys with no value | [`evnx sync --check`](/guides/commands/sync) | a name is in one file and not the other |
 | Every environment in one layout | `evnx align --env .env.development --env .env.test` | never (it writes) |
 | A CI gate or a pre-commit hook | `evnx align --env-name production --check` | a file is out of alignment |
 
@@ -163,7 +201,7 @@ API_URL=https://example.test
 | Code | Meaning |
 |------|---------|
 | `0` | Done: files written, already aligned, a `--dry-run` preview (whatever it found), or `--check` with every file aligned |
-| `1` | **Under `--check` only**: a file is out of alignment |
+| `1` | **Under `--check` only**: a file is out of alignment. A missing key whose placeholder is in place is not: that is a matter for `evnx sync --check` |
 | `2` | **No verdict.** A file is missing or is [refused](#what-it-refuses), or the same file was named twice |
 
 An exit `2` writes nothing and ends with a line beginning `No verdict:`, so a log cannot be
@@ -186,7 +224,7 @@ evnx align --env .env.development --dry-run
 ./.env.development  would change
     moved  DB_PORT  line 5 → 9
     moved  DB_HOST  line 7 → 7
-    added  REDIS_URL  line 12 (empty)
+    missing  REDIS_URL  line 12 (written as # REDIS_URL=)
     extra  LOCAL_DEBUG  line 6 → 18  (kept under "Environment-specific settings")
     kept   2 comment lines found only in this file
 · Dry run: no file was written.
@@ -212,14 +250,15 @@ evnx align --env .env.development --check
 ./.env.development  out of alignment
     moved  DB_PORT  line 5 → 9
     moved  DB_HOST  line 7 → 7
-    added  REDIS_URL  line 12 (empty)
+    missing  REDIS_URL  line 12 (written as # REDIS_URL=)
     extra  LOCAL_DEBUG  line 6 → 18  (kept under "Environment-specific settings")
     kept   2 comment lines found only in this file
 1 of 1 file out of alignment with ./.env.example. Fix: evnx align --reference ./.env.example --env ./.env.development
 ```
 
 Exit `1`. The last line goes to stderr and the rest to stdout. An aligned file prints
-`./.env.development  already aligned` and exits `0`.
+`./.env.development  already aligned` and exits `0`, adding how many keys still have no value:
+`already aligned; 1 key with no value (# KEY= placeholder)`.
 
 ### Machine-readable output
 
@@ -243,7 +282,7 @@ evnx align --env .env.development --check --format json
         { "key": "DB_PORT", "from_line": 5, "to_line": 9 },
         { "key": "DB_HOST", "from_line": 7, "to_line": 7 }
       ],
-      "added": [
+      "missing": [
         { "key": "REDIS_URL", "line": 12 }
       ],
       "extra": [
