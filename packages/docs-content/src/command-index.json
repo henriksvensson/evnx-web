@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "evnx_version": "0.11.0",
+  "evnx_version": "0.12.0",
   "features": [
     "net",
     "migrate",
@@ -409,6 +409,14 @@
           "about": "Check the contract against `.env.example`, and `.env` when there is one. Read-only; suited to a pre-commit hook and to CI"
         }
       ]
+    },
+    {
+      "name": "parse",
+      "about": "List what evnx reads from a `.env`: line, key and flags, never a value",
+      "aliases": [],
+      "guide": "/guides/commands/parse",
+      "guide_draft": false,
+      "subcommands": []
     },
     {
       "name": "run",

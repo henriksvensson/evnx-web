@@ -3,12 +3,12 @@ title: "evnx validate"
 section: commands
 order: 4
 publishedAt: "2026-03-09"
-updatedAt: "2026-10-29"
+updatedAt: "2026-11-01"
 excerpt: "Reference for evnx validate: check .env against .env.example and the [vars] contract, catch missing, placeholder, weak and misformatted values, and fix what can be fixed."
 difficulty: beginner
 timeToComplete: "10 minutes"
 tags: ["validate", "env", "ci-cd", "configuration", "evnx"]
-commands: ["add custom", "doctor", "spec init", "validate"]
+commands: ["add custom", "doctor", "parse", "spec init", "validate"]
 evnxVersion: "0.10.8"
 prerequisites:
   - getting-started/installation
@@ -35,7 +35,8 @@ evnx validate [OPTIONS]
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--env <PATH>` | `.env`, or `[defaults] env_name` | The env file to check |
+| `--env <PATH>` | `.env`, or `[defaults] env_name` | The env file to check. **v0.12.0+**: `-` reads stdin. See [Validating without a file](#validating-without-a-file) |
+| `--input-format <FORMAT>` | `dotenv` | **v0.12.0+** — `dotenv` or `json`: how to read `--env`. Never guessed |
 | `--env-name <NAME>` | — | Check `.env.<NAME>` instead. Conflicts with `--env`. A name whose file does not exist is exit `2`, listing the environments that do |
 | `--example <PATH>` | `.env.example`, or `[defaults] example` | The template to compare against |
 | `--strict` | off, or `[validate] strict` | Also report variables that are set but not declared, as warnings. Measured against `.env.example`, or against `[vars]` when there is a contract |
@@ -79,22 +80,22 @@ $ evnx validate
   evnx validate  Check environment configuration
 
   ✗  Missing required variable: PORT
-     .env
-     →  Add PORT=<value> to .env
+     ./.env
+     →  Add PORT=<value> to ./.env
      ·  fixable with --fix
 
   ✗  Missing required variable: STRIPE_KEY
-     .env
-     →  Add STRIPE_KEY=<value> to .env. If it is optional: run `evnx spec init`, then set `required = false` under [vars.STRIPE_KEY] in .evnx.toml
+     ./.env
+     →  Add STRIPE_KEY=<value> to ./.env. If it is optional: run `evnx spec init`, then set `required = false` under [vars.STRIPE_KEY] in .evnx.toml
      ·  fixable with --fix
 
   ✗  SECRET_KEY looks like a placeholder
-     .env
+     ./.env
      →  Run: openssl rand -hex 32
      ·  fixable with --fix
 
   !  DEBUG is set to "False" (string, not boolean)
-     .env
+     ./.env
      →  Use false or 0 for proper boolean handling
      ·  fixable with --fix
 
@@ -137,6 +138,75 @@ No verdict: evnx did not finish. This is not a clean result.
 Before **v0.10.8** an unknown type was accepted and ignored nothing, so a typo in a CI
 job silenced no warning and said so nowhere. The same goes for `[validate] ignore` in
 `.evnx.toml`.
+
+### A file that does not parse
+
+A `.env` evnx cannot read is exit `2`, and **v0.12.0+** lists every problem in it, in
+line order, so a file with three mistakes takes one run:
+
+```text
+# .env
+DATABASE_URL=x
+!!bad
+PORT=${NOPE}
+DEBUG="open
+```
+
+```console
+$ evnx validate
+Error: Failed to parse ./.env: 3 problems
+  Line 2: Invalid format: missing '=' separator
+  Line 3: Undefined variable: ${NOPE} is not defined
+  Line 4: Unterminated quoted string
+
+No verdict: evnx did not finish. This is not a clean result.
+```
+
+Before 0.12.0 only the first was named. A file with one problem prints exactly what it
+did before. The lines are named, never quoted, so a value cannot leak through the error.
+[`evnx parse`](/guides/commands/parse) lists the same problems and still shows the keys
+it could read.
+
+---
+
+## Validating without a file
+
+**v0.12.0+**. A pipeline can check what it is about to write without writing it first.
+
+`--env -` reads `.env` text from stdin, in memory. Findings point at `<stdin>`:
+
+```console
+$ printf 'DATABASE_URL=postgres://app@db/app\nPORT=8080\nDEBUG=True\n' | evnx validate --env -
+
+  !  DEBUG is set to "True" (string, not boolean)
+     <stdin>
+     →  Use true or 1 for proper boolean handling
+```
+
+`--input-format json` reads JSON instead: a flat object of strings, or what
+[`evnx parse --format json --values`](/guides/commands/parse#feeding-evnx-validate)
+prints. A secret manager's export, a CI variable dump or an `evnx parse` run all work:
+
+```console
+$ echo '{"DATABASE_URL":"postgres://app@db/app","PORT":"8080"}' | evnx validate --env - --input-format json
+
+  ✗  Missing required variable: DEBUG
+     <stdin>
+```
+
+The format is **never guessed**: `.env` text may legitimately start with `{`. Piping
+JSON without `--input-format json` reads it as a `.env` file, and fails as one.
+
+What is refused, each exit `2`:
+
+| Input | Why |
+|---|---|
+| `--fix` with `--env -` or `--input-format json` | `--fix` rewrites a `.env` file, and there is none: *"Save it as a .env file and run --fix on that."* |
+| An empty pipe | *"nothing was piped into `evnx validate --env -`"*, never a clean result for no input |
+| A JSON value that is not a string (`{"PORT": 8080}`) | *"PORT's value is not a string"*. Errors name keys, never values |
+| JSON that is not an object | *"expected an object of variables"* |
+
+The `.gitignore` and git checks need a file on disk, so they do not run on stdin.
 
 ---
 
@@ -223,22 +293,22 @@ evnx validate --fix --dry-run
   evnx validate  Check environment configuration
 
   ✗  Missing required variable: PORT
-     .env
-     →  Add PORT=<value> to .env
+     ./.env
+     →  Add PORT=<value> to ./.env
      ·  fixable with --fix
 
   ✗  Missing required variable: STRIPE_KEY
-     .env
-     →  Add STRIPE_KEY=<value> to .env. If it is optional: run `evnx spec init`, then set `required = false` under [vars.STRIPE_KEY] in .evnx.toml
+     ./.env
+     →  Add STRIPE_KEY=<value> to ./.env. If it is optional: run `evnx spec init`, then set `required = false` under [vars.STRIPE_KEY] in .evnx.toml
      ·  fixable with --fix
 
   ✗  SECRET_KEY looks like a placeholder
-     .env
+     ./.env
      →  Run: openssl rand -hex 32
      ·  fixable with --fix
 
   !  DEBUG is set to "False" (string, not boolean)
-     .env
+     ./.env
      →  Use false or 0 for proper boolean handling
      ·  fixable with --fix
 
@@ -251,7 +321,7 @@ Would need your input (1):
   • STRIPE_KEY: (new) → CHANGE_ME_SECURE_32_CHARS_MIN
     evnx cannot invent these values: fill them in, then run validate again
 
-  Dry run — nothing was written: .env is unchanged and no backup was made
+  Dry run — nothing was written: ./.env is unchanged and no backup was made
 
   3 errors  ·  1 warning
 
@@ -275,7 +345,7 @@ evnx validate --fix
 ```text
   evnx validate  Check environment configuration
 
-✓ Saved fixes to .env — original kept at .env.bak
+✓ Saved fixes to ./.env — original kept at ./.env.bak
 
 Fixed (3):
   • PORT: (new) → 8080
@@ -334,15 +404,15 @@ $ evnx validate --fix
   evnx validate  Check environment configuration
 
   ✗  JWT_SECRET is too weak or predictable
-     .env
+     ./.env
      →  Rotate JWT_SECRET where it is issued, then replace it here. `--fix` will not: it cannot tell a real credential from an unfilled placeholder. Pass --fix --rotate-weak-secrets if nothing else holds this value
 
   ✗  DB_PASSWORD is too weak or predictable
-     .env
+     ./.env
      →  Rotate DB_PASSWORD where it is issued, then replace it here. `--fix` will not: it cannot tell a real credential from an unfilled placeholder. Pass --fix --rotate-weak-secrets if nothing else holds this value
 
   ✗  STRIPE_KEY is too weak or predictable
-     .env
+     ./.env
      →  Rotate STRIPE_KEY where it is issued, then replace it here
 
   3 errors
@@ -362,14 +432,14 @@ $ evnx validate --fix --rotate-weak-secrets
 
   evnx validate  Check environment configuration
 
-✓ Saved fixes to .env — original kept at .env.bak
+✓ Saved fixes to ./.env — original kept at ./.env.bak
 
 Fixed (2):
   • JWT_SECRET: (previous value withheld — see the .env.bak) → <64 hex chars>
   • DB_PASSWORD: (previous value withheld — see the .env.bak) → <64 hex chars>
 
   ✗  STRIPE_KEY is too weak or predictable
-     .env
+     ./.env
      →  Rotate STRIPE_KEY where it is issued, then replace it here
 
   1 error  ·  2 fixed
@@ -403,8 +473,8 @@ $ evnx validate
 
   evnx validate  Check environment configuration
 
-  !  .env is not covered by .gitignore — `git add .` would commit it
-     .env
+  !  ./.env is not covered by .gitignore — `git add .` would commit it
+     ./.env
      →  Add it to .gitignore (`evnx doctor --fix` adds `.env*` and keeps `.env.example`)
 
   1 warning
@@ -418,9 +488,9 @@ $ evnx validate
 
   evnx validate  Check environment configuration
 
-  ✗  .env is tracked by git: its values are in the repository history
-     .env
-     →  git rm --cached .env, commit, then rotate every secret it held (`evnx scan .` lists them)
+  ✗  ./.env is tracked by git: its values are in the repository history
+     ./.env
+     →  git rm --cached ./.env, commit, then rotate every secret it held (`evnx scan .` lists them)
 
   1 error
 
@@ -446,10 +516,10 @@ so as `reader_mismatch`:
 
 ```text
   !  API_KEY (line 2): Node dotenv reads it as empty, while evnx and python-dotenv read it as written
-     .env:2
+     ./.env:2
      →  Leave the value empty (KEY=) and put the comment on its own line above it.
   !  PW (line 3): Node dotenv cuts the value at `#`, while evnx and python-dotenv read it as written
-     .env:3
+     ./.env:3
      →  Quote the value (KEY="…#…") so every reader keeps the part after `#`.
 ```
 
@@ -484,8 +554,8 @@ $ evnx validate
   evnx validate  Check environment configuration
 
   ✗  Missing required variable: SENTRY_DSN
-     .env
-     →  Add SENTRY_DSN=<value> to .env. If it is optional: run `evnx spec init`, then set `required = false` under [vars.SENTRY_DSN] in .evnx.toml
+     ./.env
+     →  Add SENTRY_DSN=<value> to ./.env. If it is optional: run `evnx spec init`, then set `required = false` under [vars.SENTRY_DSN] in .evnx.toml
      ·  fixable with --fix
 
   1 error
@@ -594,7 +664,7 @@ $ evnx validate
   evnx validate  Check environment configuration
 
   ✗  APP_URL is not a URL
-     .env
+     ./.env
      →  Fix the value, or relax `format` in [vars.APP_URL]
 
   ✗  Unknown key `requird` in [vars.SENTRY_DSN] — evnx ignores it
@@ -628,8 +698,8 @@ $ evnx validate --env-name prod
 
   evnx validate  Check environment configuration
 
-  !  .env.prod is not 'production': 1 variable limited to 'production' is not checked in it
-     .env.prod
+  !  ./.env.prod is not 'production': 1 variable limited to 'production' is not checked in it
+     ./.env.prod
      →  Rename the file .env.production, or add "prod" to `environments` in [vars.SENTRY_DSN]
 
   1 warning
@@ -649,13 +719,13 @@ $ evnx validate --env-name staging --strict
 
   evnx validate  Check environment configuration
 
-  !  SENTRY_DSN is declared for production only, but set in .env.staging
-     .env.staging
-     →  Remove it from .env.staging, or add "staging" to `environments` in [vars.SENTRY_DSN]
+  !  SENTRY_DSN is declared for production only, but set in ./.env.staging
+     ./.env.staging
+     →  Remove it from ./.env.staging, or add "staging" to `environments` in [vars.SENTRY_DSN]
 
   !  Extra variable not declared in [vars]: EXTRA
-     .env.staging
-     →  Declare it as [vars.EXTRA] in .evnx.toml, or remove it from .env.staging
+     ./.env.staging
+     →  Declare it as [vars.EXTRA] in .evnx.toml, or remove it from ./.env.staging
 
   2 warnings
   Docs: https://docs.evnx.dev/cli/commands/validate
@@ -718,8 +788,8 @@ $ evnx validate --format json
       "type": "missing_variable",
       "variable": "PORT",
       "message": "Missing required variable: PORT",
-      "location": ".env",
-      "suggestion": "Add PORT=<value> to .env",
+      "location": "./.env",
+      "suggestion": "Add PORT=<value> to ./.env",
       "auto_fixable": true
     },
     {
@@ -727,8 +797,8 @@ $ evnx validate --format json
       "type": "missing_variable",
       "variable": "STRIPE_KEY",
       "message": "Missing required variable: STRIPE_KEY",
-      "location": ".env",
-      "suggestion": "Add STRIPE_KEY=<value> to .env. If it is optional: run `evnx spec init`, then set `required = false` under [vars.STRIPE_KEY] in .evnx.toml",
+      "location": "./.env",
+      "suggestion": "Add STRIPE_KEY=<value> to ./.env. If it is optional: run `evnx spec init`, then set `required = false` under [vars.STRIPE_KEY] in .evnx.toml",
       "auto_fixable": true
     },
     {
@@ -736,7 +806,7 @@ $ evnx validate --format json
       "type": "placeholder_value",
       "variable": "SECRET_KEY",
       "message": "SECRET_KEY looks like a placeholder",
-      "location": ".env",
+      "location": "./.env",
       "suggestion": "Run: openssl rand -hex 32",
       "auto_fixable": true
     },
@@ -745,7 +815,7 @@ $ evnx validate --format json
       "type": "boolean_trap",
       "variable": "DEBUG",
       "message": "DEBUG is set to \"False\" (string, not boolean)",
-      "location": ".env",
+      "location": "./.env",
       "suggestion": "Use false or 0 for proper boolean handling",
       "auto_fixable": true
     }
@@ -830,8 +900,8 @@ the pull request:
 
 ```console
 $ evnx validate --format github-actions
-::error file=.env,line=1::Missing required variable: PORT%0ASuggestion: Add PORT=<value> to .env
-::error file=.env,line=1::Missing required variable: STRIPE_KEY%0ASuggestion: Add STRIPE_KEY=<value> to .env. If it is optional: run `evnx spec init`, then set `required = false` under [vars.STRIPE_KEY] in .evnx.toml
+::error file=.env,line=1::Missing required variable: PORT%0ASuggestion: Add PORT=<value> to ./.env
+::error file=.env,line=1::Missing required variable: STRIPE_KEY%0ASuggestion: Add STRIPE_KEY=<value> to ./.env. If it is optional: run `evnx spec init`, then set `required = false` under [vars.STRIPE_KEY] in .evnx.toml
 ::error file=.env,line=4::SECRET_KEY looks like a placeholder%0ASuggestion: Run: openssl rand -hex 32
 ::warning file=.env,line=3::DEBUG is set to "False" (string, not boolean)%0ASuggestion: Use false or 0 for proper boolean handling
 ```
@@ -851,8 +921,8 @@ $ evnx validate --fail-on warning
 
   evnx validate  Check environment configuration
 
-  !  .env is not covered by .gitignore — `git add .` would commit it
-     .env
+  !  ./.env is not covered by .gitignore — `git add .` would commit it
+     ./.env
      →  Add it to .gitignore (`evnx doctor --fix` adds `.env*` and keeps `.env.example`)
 
   1 warning
@@ -890,15 +960,15 @@ $ evnx validate
   evnx validate  Check environment configuration
 
   !  Extra variable not in .env.example: EXTRA
-     .env
-     →  Add EXTRA to .env.example or remove from .env
+     ./.env
+     →  Add EXTRA to .env.example or remove from ./.env
 
   !  Extra variable not in .env.example: DEBUG
-     .env
-     →  Add DEBUG to .env.example or remove from .env
+     ./.env
+     →  Add DEBUG to .env.example or remove from ./.env
 
   ✗  PORT is not a valid port number (1-65535)
-     .env
+     ./.env
      →  Expected format: 8080
 
   1 error  ·  2 warnings

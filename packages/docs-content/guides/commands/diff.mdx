@@ -3,7 +3,7 @@ section: "commands"
 order: 4
 title: "evnx diff"
 publishedAt: "2026-03-11"
-updatedAt: "2026-10-29"
+updatedAt: "2026-11-01"
 excerpt: "Compare .env with its template by key name, or two environments by key and value. Values stay hidden unless asked for; --fail-on picks what fails the run, so the exit code is a CI gate."
 difficulty: "beginner"
 timeToComplete: "6 minutes"
@@ -89,15 +89,15 @@ evnx diff
 ```
 
 ```text
-  evnx diff  .env ↔ .env.example
+  evnx diff  ./.env ↔ ./.env.example
 
-Missing from .env (present in .env.example):
+Missing from ./.env (present in ./.env.example):
   + REDIS_URL
 
-Extra in .env (not in .env.example):
+Extra in ./.env (not in ./.env.example):
   - LOCAL_DEBUG_MODE
 
-  1 missing from .env  ·  1 not in .env.example
+  1 missing from ./.env  ·  1 not in ./.env.example
   values not compared against a template (--values to compare them)
 ```
 
@@ -105,9 +105,9 @@ Extra in .env (not in .env.example):
 `1`. Once the keys match:
 
 ```text
-  evnx diff  .env ↔ .env.example
+  evnx diff  ./.env ↔ ./.env.example
 
-✓ .env and .env.example have the same keys
+✓ ./.env and ./.env.example have the same keys
   values not compared against a template (--values to compare them)
 ```
 
@@ -123,12 +123,12 @@ evnx diff --fail-on missing
 ```
 
 ```text
-  evnx diff  .env ↔ .env.example
+  evnx diff  ./.env ↔ ./.env.example
 
-Extra in .env (not in .env.example):
+Extra in ./.env (not in ./.env.example):
   - LOCAL_DEBUG_MODE
 
-  1 not in .env.example
+  1 not in ./.env.example
   values not compared against a template (--values to compare them)
 ```
 
@@ -148,9 +148,9 @@ evnx diff --values
 ```
 
 ```text
-  evnx diff  .env ↔ .env.example
+  evnx diff  ./.env ↔ ./.env.example
 
-Extra in .env (not in .env.example):
+Extra in ./.env (not in ./.env.example):
   - LOCAL_DEBUG_MODE
 
 Different values:
@@ -158,7 +158,7 @@ Different values:
   ~ STRIPE_SECRET_KEY
   ~ REDIS_URL
 
-  1 not in .env.example  ·  3 different values
+  1 not in ./.env.example  ·  3 different values
 ```
 
 Every filled-in value differs from its placeholder, so this is mostly useful to find a
@@ -174,9 +174,9 @@ evnx diff --env-name production --against staging
 ```
 
 ```text
-  evnx diff  .env.production ↔ .env.staging
+  evnx diff  ./.env.production ↔ ./.env.staging
 
-Extra in .env.production (not in .env.staging):
+Extra in ./.env.production (not in ./.env.staging):
   - SENTRY_DSN
 
 Different values:
@@ -184,7 +184,7 @@ Different values:
   ~ STRIPE_SECRET_KEY
   ~ NODE_ENV
 
-  1 not in .env.staging  ·  3 different values
+  1 not in ./.env.staging  ·  3 different values
 ```
 
 Keys and values are both compared. Which values differ is shown; the values themselves are
@@ -193,14 +193,14 @@ not, unless you add `--show-values`:
 ```text
 Different values:
   ~ DATABASE_URL
-    .env.staging: postgres://admin:***@db.stg:5432/app
-    .env.production: postgres://admin:***@db.prod:5432/app
+    ./.env.staging: postgres://admin:***@db.stg:5432/app
+    ./.env.production: postgres://admin:***@db.prod:5432/app
   ~ STRIPE_SECRET_KEY
-    .env.staging: ***
-    .env.production: ***
+    ./.env.staging: ***
+    ./.env.production: ***
   ~ NODE_ENV
-    .env.staging: staging
-    .env.production: production
+    ./.env.staging: staging
+    ./.env.production: production
 ```
 
 ---
@@ -272,7 +272,7 @@ Without `--format json` it is refused, exit 2.
 
 ```console
 $ evnx diff --format patch
-# LOCAL_DEBUG_MODE is only in .env; this patch keeps it
+# LOCAL_DEBUG_MODE is only in ./.env; this patch keeps it
 --- a/.env
 +++ b/.env
 @@ -2,0 +3,1 @@
@@ -395,15 +395,15 @@ evnx diff --ignore-keys LOCAL_DEBUG_MODE
 ```
 
 ```text
-✓ .env and .env.example have the same keys (1 key ignored)
+✓ ./.env and ./.env.example have the same keys (1 key ignored)
 ```
 
 Names are exact case. `--ignore-keys` adds to `[diff] ignore_keys` in `.evnx.toml`, so a
 project can ignore a key for everyone. `-v` lists names that matched no key:
 
 ```text
-⋯ comparing .env (6 keys) with .env.example (5 keys)
-⋯ .env.example is a template: key names only (--values compares values)
+⋯ comparing ./.env (6 keys) with ./.env.example (5 keys)
+⋯ ./.env.example is a template: key names only (--values compares values)
 ⋯ fails on: missing, extra, different
 ⋯ ignored: LOCAL_DEBUG_MODE
 ⋯ ignore names that matched no key (case counts): NOPE
@@ -423,7 +423,7 @@ A_FIRST=value
 M_MIDDLE=value
 
 # a .env without them reports, in file order:
-Missing from .env (present in .env.example):
+Missing from ./.env (present in ./.env.example):
   + Z_LAST
   + A_FIRST
   + M_MIDDLE
@@ -444,7 +444,7 @@ when it is absent from staging, and it counts towards the exit code. See
 ### `.env does not exist`
 
 ```text
-Error: .env does not exist
+Error: ./.env does not exist
 
 Create it with `evnx init`, or point at another file with --env.
 ```

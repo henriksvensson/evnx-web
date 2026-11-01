@@ -1,0 +1,242 @@
+---
+title: "evnx parse"
+section: commands
+order: 20
+publishedAt: "2026-11-01"
+updatedAt: "2026-11-01"
+excerpt: "See exactly what evnx reads from a .env file, line by line: every key, whether its value is empty, a placeholder or a secret, and every problem in the file at once. Names only, unless you ask for values."
+difficulty: beginner
+timeToComplete: "5 minutes"
+tags: ["parse", "inspect", "keys", "json", "validate", "evnx"]
+commands: ["diff", "parse", "scan", "validate"]
+evnxVersion: "0.12.0"
+prerequisites:
+  - getting-started/installation
+draft: false
+---
+
+`evnx parse` shows what evnx reads from a `.env` file: each key, the line it is on,
+and whether its value is **empty**, a **placeholder** or a **secret**. It lists every
+problem in the file at once, so a file with three mistakes takes one run, not three.
+
+It prints **names, never values**, unless you ask. That makes it safe to run in a CI
+log, to paste into an issue, or to hand to an AI agent that needs to know which
+variables a project has without seeing them. **v0.12.0+**.
+
+<Prerequisites>
+  <Prerequisite href="/guides/getting-started/installation">Install evnx</Prerequisite>
+</Prerequisites>
+
+## Quick example
+
+```text
+# .env
+PORT=8080
+DATABASE_URL=postgres://app:example-only@localhost:5432/app
+API_KEY=
+SECRET_KEY=changeme
+STRIPE_KEY=sk_test_example_only_0000
+```
+
+```bash
+evnx parse
+```
+
+```text
+   1  PORT
+   2  DATABASE_URL  secret
+   3  API_KEY       empty,secret
+   4  SECRET_KEY    placeholder,secret
+   5  STRIPE_KEY    secret
+```
+
+Line number, key, flags. No value appears anywhere in the output.
+
+---
+
+## Command signature
+
+```bash
+evnx parse [OPTIONS]
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--env <ENV>` | `.env`, or `[defaults] env_name` | The file to read; `-` reads stdin |
+| `--env-name <NAME>` | — | Read `.env.<NAME>` instead |
+| `--format <FORMAT>` | `pretty` | `pretty` or `json` |
+| `--values` | off | Print each value too, in plain text (see below) |
+| `--yes`, `-y` | off | Allow `--values` when stdout is a terminal |
+
+---
+
+## The flags
+
+| Flag | Means |
+|---|---|
+| `empty` | The value is empty: `API_KEY=` |
+| `placeholder` | The value is filler, not a real setting: `changeme`, `<your-key>`, `xxx`. Judged the way `evnx validate` judges it, so the two never disagree |
+| `secret` | The name or the value looks like a credential: `*_KEY`, `*_SECRET`, `*_PASSWORD`, a provider token, a URL with a password in it |
+
+The flags combine. `empty,secret` is a secret-named variable with nothing in it yet,
+which is usually the one to fill in next.
+
+---
+
+## Every problem at once
+
+A file evnx cannot read in full is not an error that stops at the first line. Every
+problem is listed, on stderr, and the keys that *could* be read are still printed:
+
+```text
+# .env.broken
+A=1
+!!bad
+B=${NOPE}
+C="unclosed
+```
+
+```bash
+evnx parse --env-name broken
+```
+
+```text
+   1  A
+   3  B
+✗ Line 2: Invalid format: missing '=' separator
+✗ Line 3: Undefined variable: ${NOPE} is not defined
+✗ Line 4: Unterminated quoted string
+```
+
+It exits `1`. The problem messages name the line and never quote it, so a value on a
+broken line cannot leak through the error.
+
+---
+
+## JSON output
+
+```bash
+evnx parse --format json
+```
+
+```json
+{
+  "schema_version": 1,
+  "file": "./.env",
+  "entries": [
+    { "key": "PORT", "line": 1, "empty": false, "placeholder": false, "secret": false },
+    { "key": "DATABASE_URL", "line": 2, "empty": false, "placeholder": false, "secret": true },
+    { "key": "API_KEY", "line": 3, "empty": true, "placeholder": false, "secret": true },
+    { "key": "SECRET_KEY", "line": 4, "empty": false, "placeholder": true, "secret": true },
+    { "key": "STRIPE_KEY", "line": 5, "empty": false, "placeholder": false, "secret": true }
+  ],
+  "problems": []
+}
+```
+
+(Shown compacted; the real output has one field per line.) `problems` carries
+`line` and `message` for each problem. `schema_version` changes only when a field
+changes meaning.
+
+A script can ask what a project still needs without reading a single value:
+
+```bash
+evnx parse --format json | jq -r '.entries[] | select(.empty) | .key'
+```
+
+---
+
+## Values, when you need them
+
+`--values` adds each value as a last column, in plain text:
+
+```bash
+evnx parse --values | less
+```
+
+```text
+   1  PORT                              8080
+   2  DATABASE_URL  secret              postgres://app:example-only@localhost:5432/app
+   3  API_KEY       empty,secret
+   4  SECRET_KEY    placeholder,secret  changeme
+   5  STRIPE_KEY    secret              sk_test_example_only_0000
+```
+
+**Printed straight to a terminal, it is refused**, because a value shown there stays in
+the scrollback:
+
+```text
+Error: --values prints every value in plain text, and stdout is a terminal, where it stays in the scrollback. Pipe it, or pass --yes.
+```
+
+Pipe it somewhere, or pass `--yes` when you mean it. A multi-line value stays on its row,
+with its newlines shown as `\n`.
+
+---
+
+## Feeding `evnx validate`
+
+`parse`'s JSON, with values, is one of the inputs
+[`evnx validate`](/guides/commands/validate#validating-without-a-file) reads, so a
+pipeline can check a file that only exists in memory:
+
+```bash
+evnx parse --format json --values | evnx validate --env - --input-format json
+```
+
+```text
+  ✗  API_KEY looks like a placeholder
+     <stdin>
+
+  ✗  SECRET_KEY looks like a placeholder
+     <stdin>
+     →  Run: openssl rand -hex 32
+
+  ✗  STRIPE_KEY is too weak or predictable
+     <stdin>
+     →  Rotate STRIPE_KEY where it is issued, then replace it here
+```
+
+`--input-format json` is never guessed: a `.env` file whose first line happens to be `{`
+is still a `.env` file.
+
+---
+
+## Reading stdin
+
+`--env -` reads from a pipe, in memory, with nothing written to disk:
+
+```bash
+printf 'X=1\nY=2\n' | evnx parse --env -
+```
+
+```text
+   1  X
+   2  Y
+```
+
+---
+
+## Exit codes
+
+| Code | Meaning |
+|---|---|
+| `0` | The file was read in full |
+| `1` | The file has problems; every one was listed |
+| `2` | Could not run: the file does not exist, `--values` at a terminal without `--yes`, nothing piped to `--env -` |
+
+---
+
+## When to use it
+
+| You want | Use |
+|---|---|
+| Which variables a file has, safely, for a log, an issue or an agent | `evnx parse` |
+| Whether the file is complete and its values sound | [`evnx validate`](/guides/commands/validate) |
+| What differs between `.env` and `.env.example` | [`evnx diff`](/guides/commands/diff) |
+| Whether a file holds secrets that should not be committed | [`evnx scan`](/guides/commands/scan) |
+
+## See also
+
+- [evnx validate](/guides/commands/validate) — reads `parse`'s JSON with `--input-format json`
+- [Environments](/guides/reference/environments) — `--env-name`

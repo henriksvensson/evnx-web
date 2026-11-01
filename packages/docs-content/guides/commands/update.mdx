@@ -3,7 +3,7 @@ section: "commands"
 order: 18
 title: "evnx update"
 publishedAt: "2026-09-29"
-updatedAt: "2026-10-29"
+updatedAt: "2026-11-01"
 excerpt: "Find out whether a newer evnx exists, and get the upgrade command for the way you installed it."
 difficulty: "beginner"
 timeToComplete: "5 minutes"
@@ -31,14 +31,15 @@ upgrade commands on this page still work — pick the one matching how you insta
 ## Command signature
 
 ```bash
-evnx update [--check [--json]]
+evnx update [--check | --list] [--json]
 ```
 
 | Flag | What it does |
 |---|---|
 | *(none)* | Works out how evnx was installed and prints that channel's upgrade command. **Contacts nothing.** |
 | `--check` | Asks `api.github.com` for the latest release and compares it with the running version |
-| `--json` | **v0.10.7+** — with `--check`, the answer as JSON on stdout |
+| `--list` | **v0.12.0+** — every copy of evnx on this machine, its version, which one runs, and how to remove the rest. **Contacts nothing.** See [More than one copy](#more-than-one-copy---list) |
+| `--json` | **v0.10.7+** — with `--check` (or **v0.12.0+** `--list`), the answer as JSON on stdout. Alone, a usage error |
 | `--quiet`, `-q` | Only the upgrade command; with `--check`, the status line and the command |
 
 ---
@@ -55,10 +56,21 @@ $ evnx update
       brew upgrade evnx
 
   To see whether a newer version exists:  evnx update --check
+
+  This build's source was committed today.
+
+  note: 1 other copy of evnx is on this machine: evnx update --list
 ```
 
+**v0.12.0+** adds the last two lines. The age comes from the date of the commit the
+binary was built from, compiled in, so it needs no network either; a build from the
+crates.io source package has no commit to read and leaves the line out. The note
+appears only when there is another copy (see [`--list`](#more-than-one-copy---list)).
+
 The channel is read from the **path of the running binary**, and from the files pip
-leaves beside it — there is nothing to fetch. It tells these apart: cargo, Homebrew,
+leaves beside it — there is nothing to fetch. **v0.12.0+**: the install script also
+leaves a receipt, `install-receipt.json` in evnx's config folder, naming the file it
+wrote; when it names the running binary, that settles it before any path is guessed at. It tells these apart: cargo, Homebrew,
 Scoop, winget, npm, pip, pipx (**v0.11.0+**), pip under a Python that refuses pip
 (**v0.11.0+**) and the install script. `~/.cargo/bin/evnx` is a
 cargo install, `…/Cellar/evnx/…` is Homebrew, `…/scoop/apps/evnx/…` is Scoop, and so on.
@@ -228,6 +240,8 @@ $ evnx update --check --json
 | `status` | `current`, `behind` or `ahead` (a build newer than the latest release) |
 | `channel` | `cargo`, `homebrew`, `scoop`, `winget`, `npm`, `pip`, `pipx`, `pip-externally-managed`, `script` or `unknown` |
 | `command` | the upgrade command, or `null` when evnx cannot name one (`unknown`) |
+| `release_url` | the release page |
+| `other_copies` | **v0.12.0+** — how many other copies of evnx are on this machine; `evnx update --list` names them |
 
 <Callout type="warning" title="v0.11.0: new channel values">
 `script-or-pip` is gone: a shared folder with no pip record is `script`, with its
@@ -235,11 +249,10 @@ $ evnx update --check --json
 `pipx install evnx`. **Migrate:** match on the new values, and treat an unknown one as
 `unknown`.
 </Callout>
-| `release_url` | the release page |
 
 The exit code is the same as without `--json`. When the check cannot run, nothing is
-printed on stdout and the exit code is `2`. `--json` without `--check` is a usage
-error.
+printed on stdout and the exit code is `2`. `--json` without `--check` or `--list` is a
+usage error.
 
 ### Why it asks GitHub and not a package registry
 
@@ -255,6 +268,85 @@ exists at all. Every other channel derives from that tag and can trail it:
 ⚠️ That is why the output carries the propagation note **every time** a newer version
 is found. `--check` tells you a release happened; it cannot promise your channel has
 it yet.
+
+---
+
+## More than one copy: `--list`
+
+**v0.12.0+**. evnx ships through nine channels, and it is easy to end up with two: an
+npm install from last year and a cargo install from today. Typing `evnx` runs whichever
+comes first on `PATH`, which is often the **older** one, and nothing says so.
+
+```console
+$ evnx update --list
+
+  ▶ 0.10.0     /home/you/.npm-global/bin/evnx  (npm)
+      → /home/you/.npm-global/lib/node_modules/@evnx/cli/bin/evnx
+    0.12.0     /home/you/.cargo/bin/evnx  (cargo, this one)
+
+  ▶ is the copy that runs when you type `evnx`.
+  ! the copy that runs is older than /home/you/.cargo/bin/evnx.
+  Keep /home/you/.cargo/bin/evnx. To remove the others:
+      npm uninstall -g @evnx/cli
+  Then check:  type -a evnx
+```
+
+How it finds them:
+
+- **`PATH`, in order**, then the folders installers use that may not be on it:
+  `~/.cargo/bin`, `~/.local/bin`, npm's global prefix (read from `npm_config_prefix` or
+  `~/.npmrc`, never by running npm), pipx's venv, `/opt/homebrew/bin`,
+  `/usr/local/bin` and Linuxbrew.
+- **A symlink and its target are one copy**, listed where it was first found; `→` shows
+  the file it points at.
+- **Versions come from what the installer left**: Homebrew's `Cellar/evnx/<version>`,
+  pip's `evnx-<version>.dist-info`, npm's `package.json`, the install script's receipt.
+  A copy with none of these is run with `--version` and nothing else, and given up on
+  after two seconds; the output then says *version from running it*.
+- **It recommends keeping the newest**, which is not always the one that runs, and gives
+  each other copy the command that removes it, for the channel that installed it.
+
+It makes no network request, and it exits `0` however many copies it finds: a listing
+is not a failure. A script that wants to fail on a second copy reads the JSON:
+
+```console
+$ evnx update --list --json
+{
+  "copies": [
+    {
+      "channel": "npm",
+      "path": "/home/you/.npm-global/bin/evnx",
+      "remove": "npm uninstall -g @evnx/cli",
+      "resolved": "/home/you/.npm-global/lib/node_modules/@evnx/cli/bin/evnx",
+      "runs": true,
+      "this": false,
+      "version": "0.10.0",
+      "version_from": "metadata"
+    },
+    {
+      "channel": "cargo",
+      "path": "/home/you/.cargo/bin/evnx",
+      "remove": "cargo uninstall evnx",
+      "resolved": "/home/you/.cargo/bin/evnx",
+      "runs": false,
+      "this": true,
+      "version": "0.12.0",
+      "version_from": "self"
+    }
+  ],
+  "count": 2,
+  "schema": 1
+}
+```
+
+`version_from` is `self`, `metadata`, `ran` or `unknown`.
+
+```bash
+test "$(evnx update --list --json | jq .count)" -eq 1 || echo "more than one evnx installed"
+```
+
+New installs warn about this too: a global npm install says when another `evnx` comes
+first on `PATH`, and Homebrew's post-install notes say how to check.
 
 ---
 
