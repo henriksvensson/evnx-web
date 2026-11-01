@@ -101,10 +101,10 @@ Backup information:
 ✓ Decryption successful
   ✓ Decryption key cleared from memory
 
-✓ Restored 5 variable(s) to .env
+✓ Restored 5 variable(s) to ./.env
 
 Next steps:
-  1. Run: evnx validate --env .env
+  1. Run: evnx validate --env ./.env
   2. Verify your application starts correctly
   3. Delete the backup file once you have confirmed the restore
   Docs: https://docs.evnx.dev/cli/commands/restore
@@ -141,9 +141,9 @@ nothing to do:
 ```text
 ! Output file already exists: ./.env
 Overwrite ./.env? (the current file is kept as a .bak copy) [y/N] yes
-· Kept the previous ./.env as .env.bak
+· Kept the previous ./.env as ./.env.bak
 
-✓ Restored 5 variable(s) to .env
+✓ Restored 5 variable(s) to ./.env
 ```
 
 Answering no (or Enter) exits `4` and changes nothing:
@@ -176,9 +176,9 @@ evnx restore .env.backup --password-file backup.key --yes
 ```
 
 ```text
-· Kept the previous ./.env as .env.bak
+· Kept the previous ./.env as ./.env.bak
 
-✓ Restored 5 variable(s) to .env
+✓ Restored 5 variable(s) to ./.env
 ```
 
 **The kept copy.** Whichever way the yes came, the file being replaced is copied to
@@ -266,15 +266,15 @@ working file, and the run exits `5`:
 
 ```text
 ! Decrypted content does not look like a valid .env file.
-  Writing to notes.env.restored instead of notes.env to protect your current file.
+  Writing to ./notes.env.restored instead of ./notes.env to protect your current file.
   Inspect the file manually, then rename it if the content looks correct:
-    mv notes.env.restored notes.env
-! Wrote the backup's content to notes.env.restored, not to notes.env
+    mv ./notes.env.restored ./notes.env
+! Wrote the backup's content to ./notes.env.restored, not to ./notes.env
 
 Next steps:
-  1. Inspect the restored file:  cat notes.env.restored
-  2. If the content is correct:  mv notes.env.restored notes.env
-  3. Validate the result:        evnx validate --env notes.env
+  1. Inspect the restored file:  cat ./notes.env.restored
+  2. If the content is correct:  mv ./notes.env.restored ./notes.env
+  3. Validate the result:        evnx validate --env ./notes.env
 ```
 
 <Callout type="info">
