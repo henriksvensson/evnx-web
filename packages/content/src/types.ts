@@ -33,6 +33,8 @@ export interface Card {
   href?: string;
   /** Monospace title — used for command cards. */
   mono?: boolean;
+  /** A spot illustration drawn at the top of the card. */
+  spot?: SpotId;
 }
 
 /** One moment on a timeline. Used by both the leak anatomy and the origin story. */
@@ -57,4 +59,37 @@ export interface TerminalLine {
 export interface Faq {
   q: string;
   a: string;
+}
+
+/**
+ * A spot illustration, by name. The drawing lives in the app
+ * (`apps/web/components/art/spots.tsx`, typed `Record<SpotId, …>`), so adding a
+ * name here without drawing it is a compile error, not a blank square.
+ */
+export type SpotId =
+  | "laptop"
+  | "key"
+  | "guard"
+  | "safe"
+  | "cloud"
+  | "card"
+  | "card-revoked"
+  | "checklist"
+  | "clipboard"
+  | "server"
+  | "settings"
+  | "settings-ok"
+  | "backup"
+  | "phone"
+  | "board"
+  | "bot"
+  | "fan"
+  | "sync";
+
+/** A command named on the page, linking to its guide. */
+export interface CommandPill {
+  /** Exactly as typed, e.g. "evnx cloud run". Must exist in `evnx --help`. */
+  label: string;
+  /** The guide under docs `commands/`, e.g. "cloud". */
+  guide: string;
 }

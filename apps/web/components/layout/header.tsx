@@ -7,6 +7,7 @@ import { Menu, X, Github } from "lucide-react";
 import { EVNX_VERSION, GITHUB_URL } from "@/lib/config";
 import { SearchTrigger , SearchModal} from'@/components/ui/search-modal'
 import { TESTIMONIALS_ENABLED, docsUrl } from "@evnx/config";
+import { BrandMark } from "./brand-mark";
 
 // ⚠️ Testimonials is appended only when the flag is on — see
 // TESTIMONIALS_ENABLED. A "Testimonials" tab leading to an empty page reads as
@@ -37,9 +38,7 @@ export function Header() {
         <div className="flex items-center justify-between h-14">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-3 group">
-            <div className="w-7 h-7 bg-brand-500 rounded flex items-center justify-center">
-              <span className="font-mono font-bold text-black text-xs">ev</span>
-            </div>
+            <BrandMark />
             <span className="font-mono font-bold text-text-primary">evnx</span>
             <span className="hidden sm:block font-mono text-xs text-text-muted border border-border-subtle rounded px-1.5 py-0.5">
               v{EVNX_VERSION}

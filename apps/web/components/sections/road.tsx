@@ -1,0 +1,69 @@
+import Link from "next/link";
+import { docsUrl } from "@evnx/config";
+import { road } from "@evnx/content";
+import { Spot } from "@/components/art/spots";
+import { SectionHeading } from "./section-shell";
+
+/**
+ * The whole tool as four stages along one road.
+ *
+ * ⚠️ HTML, not a picture of the overview. Every command name is real text that
+ * links to its guide, can be found by search, and is read by a screen reader;
+ * only the four spot drawings are art.
+ */
+export function Road() {
+  return (
+    <>
+      <SectionHeading eyebrow={road.eyebrow} heading={road.heading} lede={road.lede} />
+
+      <ol className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
+        {road.stages.map((s, i) => (
+          <li
+            key={s.n}
+            className="relative flex flex-col p-6 rounded-xl border border-border-muted bg-bg-base"
+          >
+            {i < road.stages.length - 1 && (
+              // The road: an arrow to the next stop, only where the stops sit in one row.
+              <span
+                aria-hidden
+                className="hidden xl:block absolute -right-[18px] top-14 z-10 text-brand-500 font-mono"
+              >
+                →
+              </span>
+            )}
+
+            <div className="flex items-start justify-between gap-3 mb-4">
+              <div>
+                <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-brand-500 text-black font-mono font-bold text-sm mb-3">
+                  {s.n}
+                </span>
+                <h3 className="font-serif text-2xl font-bold leading-tight">{s.name}</h3>
+              </div>
+              <Spot id={s.spot} size={56} className="shrink-0" />
+            </div>
+
+            <p className="text-sm text-text-secondary mb-5">{s.subtitle}</p>
+
+            <ul className="space-y-3">
+              {s.commands.map((c) => (
+                <li key={c.label}>
+                  <Link
+                    href={docsUrl(`commands/${c.guide}`)}
+                    className="inline-block font-mono text-xs text-brand-400 bg-terminal-bg border border-border-muted rounded px-2 py-1 hover:border-brand-500 transition-colors"
+                  >
+                    {c.label}
+                  </Link>
+                  <div className="text-sm text-text-secondary mt-1">{c.line}</div>
+                </li>
+              ))}
+            </ul>
+          </li>
+        ))}
+      </ol>
+
+      <p className="mt-6 rounded-lg bg-brand-500 text-black font-medium px-5 py-3">
+        {road.banner}
+      </p>
+    </>
+  );
+}
