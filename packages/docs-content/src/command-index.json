@@ -90,6 +90,14 @@
       "subcommands": []
     },
     {
+      "name": "align",
+      "about": "Give .env files the template's sections, comments and key order, keeping their values",
+      "aliases": [],
+      "guide": "/guides/commands/align",
+      "guide_draft": false,
+      "subcommands": []
+    },
+    {
       "name": "template",
       "about": "Generate config files from templates",
       "aliases": [],

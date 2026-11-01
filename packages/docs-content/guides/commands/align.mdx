@@ -1,0 +1,404 @@
+---
+title: "evnx align"
+section: commands
+order: 21
+publishedAt: "2026-11-01"
+updatedAt: "2026-11-01"
+excerpt: "Reference for evnx align: give every .env the sections, comments and key order of your template, keep each file's values byte for byte, and gate CI on drift with --check."
+difficulty: beginner
+timeToComplete: "5 minutes"
+tags: ["align", "layout", "reference", "cli", "env"]
+commands: ["align", "diff", "init", "parse", "spec", "sync"]
+evnxVersion: "0.13.0"
+prerequisites:
+  - getting-started/installation
+draft: false
+---
+
+`evnx align` gives `.env` files the **layout** of your template: its section headings,
+comments, blank lines and key order. Each file keeps its own assignments, moved exactly as
+written, so values, quoting, escapes, `${VAR}` references, inline comments and multiline
+values never change. Adding missing names with placeholder values is
+[`evnx sync`](/guides/commands/sync); `align` arranges what is already there.
+
+<Prerequisites>
+  <Prerequisite href="/guides/getting-started/installation">Install evnx</Prerequisite>
+</Prerequisites>
+
+---
+
+## Command signature
+
+```bash
+evnx align [OPTIONS]
+```
+
+### Options
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--reference <PATH>` | `[defaults] example`, else `.env.example` | The ordered template whose layout to follow |
+| `--env <PATH>` | `.env`, or `[defaults] env_name` | A file to align. Repeat for several; every one is checked before any is written |
+| `--env-name <NAME>` | — | Align `.env.<NAME>`. Repeatable, and combines with `--env`. A name with no file is an error listing the environments there are |
+| `-n`, `--dry-run` | off | Report what would change; writes nothing, exits `0` whether or not a file would change |
+| `--check` | off | Report the verdict through the [exit code](#exit-codes); writes nothing. Wins over `--dry-run` if both are given |
+| `--format <FMT>` | `pretty` | `json`, in any mode. See [JSON output](#machine-readable-output) |
+| `-v`, `--verbose` | off | Accepted, but `align` prints the same either way |
+| `-q`, `--quiet` | off | Print nothing on success; drift, warnings and errors still print |
+| `--no-color` | off | Plain output (as does `NO_COLOR`) |
+
+---
+
+## What it does
+
+With this template:
+
+```text
+# Copy to .env and fill in
+
+# === Database ===
+# Primary database host
+DB_HOST=localhost
+DB_PORT=5432
+
+# === Cache ===
+REDIS_URL=redis://localhost:6379
+
+# === Auth ===
+JWT_SECRET=change-me
+```
+
+and this `.env.development`:
+
+```text
+# Laptop only
+
+JWT_SECRET="dev-only" # rotated monthly
+# Docker maps this one
+DB_PORT=5433
+LOCAL_DEBUG=1
+DB_HOST=db.internal
+```
+
+running
+
+```bash
+evnx align --reference .env.example --env .env.development
+```
+
+leaves `.env.development` as:
+
+```text
+# Laptop only
+
+# Copy to .env and fill in
+
+# === Database ===
+# Primary database host
+DB_HOST=db.internal
+# Docker maps this one
+DB_PORT=5433
+
+# === Cache ===
+REDIS_URL=
+
+# === Auth ===
+JWT_SECRET="dev-only" # rotated monthly
+
+# Environment-specific settings
+LOCAL_DEBUG=1
+```
+
+Run it again and the file is not touched: same content, same modification time.
+
+| In the template | In the file | Result |
+|-----------------|-------------|--------|
+| A heading, comment or blank line | — | Copied in place, with the file's line ending |
+| `KEY=…` | `KEY=…` | The file's line, unchanged, at the template's position |
+| `KEY=…` | Missing | `KEY=`, empty. **The template's value is never copied**, nor its inline comment |
+| — | `KEY=…` | Kept at the end, in the file's order, under `# Environment-specific settings` |
+
+The heading for extra keys belongs to evnx: it is written when there are extra keys and
+removed when there are none left.
+
+---
+
+## Which comment goes where
+
+A comment on the same line as an assignment is part of that assignment and moves with it.
+A comment on a line of its own follows these rules, in order:
+
+| The comment | Where it goes |
+|-------------|---------------|
+| Also appears in the template (ignoring surrounding whitespace) | It is the template's. The template's copy is written at the template's position, and the file's copy is not kept separately |
+| Sits directly above an assignment, with no blank line between | Moves with that assignment, directly above it and below the template's own comments for that key |
+| Is followed by a blank line or the end of the file | Stays after the assignment above it, as a paragraph with a blank line on each side |
+| Is followed by a blank line and has no assignment above it | Stays at the very top of the file |
+
+A comment only your file has is never dropped. That includes older wording of a comment
+you have since changed in the template: both are kept, and you delete the old one when you
+are ready.
+
+```text
+# New wording
+# Old wording
+API_URL=https://example.test
+```
+
+---
+
+## Which form to use
+
+| You want | Run | Exit `1` when |
+|----------|-----|---------------|
+| To tidy a file | `evnx align --env .env` | never (it writes) |
+| To see what that would do | `evnx align --env .env --dry-run` | never |
+| Every environment in one layout | `evnx align --env .env.development --env .env.test` | never (it writes) |
+| A CI gate or a pre-commit hook | `evnx align --env-name production --check` | a file is out of alignment |
+
+---
+
+## Exit codes
+
+| Code | Meaning |
+|------|---------|
+| `0` | Done: files written, already aligned, a `--dry-run` preview (whatever it found), or `--check` with every file aligned |
+| `1` | **Under `--check` only**: a file is out of alignment |
+| `2` | **No verdict.** A file is missing or is [refused](#what-it-refuses), or the same file was named twice |
+
+An exit `2` writes nothing and ends with a line beginning `No verdict:`, so a log cannot be
+mistaken for a clean run (an unknown flag, which the parser rejects before `align` starts,
+prints usage instead):
+
+```text
+No verdict: evnx did not finish. This is not a clean result.
+```
+
+---
+
+## Preview: `--dry-run`
+
+```bash
+evnx align --env .env.development --dry-run
+```
+
+```text
+./.env.development  would change
+    moved  DB_PORT  line 5 → 9
+    moved  DB_HOST  line 7 → 7
+    added  REDIS_URL  line 12 (empty)
+    extra  LOCAL_DEBUG  line 6 → 18  (kept under "Environment-specific settings")
+    kept   2 comment lines found only in this file
+· Dry run: no file was written.
+```
+
+The report is names and line numbers, not a diff, because a diff of a `.env` would print
+its values.
+
+`moved` lists the keys whose order relative to the others changes, which is why a key can
+read `line 7 → 7`. Keys that only shift because something moved around them are not listed.
+
+---
+
+## `--check`
+
+`--check` writes nothing:
+
+```bash
+evnx align --env .env.development --check
+```
+
+```text
+./.env.development  out of alignment
+    moved  DB_PORT  line 5 → 9
+    moved  DB_HOST  line 7 → 7
+    added  REDIS_URL  line 12 (empty)
+    extra  LOCAL_DEBUG  line 6 → 18  (kept under "Environment-specific settings")
+    kept   2 comment lines found only in this file
+1 of 1 file out of alignment with ./.env.example. Fix: evnx align --reference ./.env.example --env ./.env.development
+```
+
+Exit `1`. The last line goes to stderr and the rest to stdout. An aligned file prints
+`./.env.development  already aligned` and exits `0`.
+
+### Machine-readable output
+
+`--format json` works in every mode:
+
+```bash
+evnx align --env .env.development --check --format json
+```
+
+```json
+{
+  "schema_version": 1,
+  "mode": "check",
+  "reference": "./.env.example",
+  "aligned": false,
+  "targets": [
+    {
+      "file": "./.env.development",
+      "status": "out-of-alignment",
+      "moved": [
+        { "key": "DB_PORT", "from_line": 5, "to_line": 9 },
+        { "key": "DB_HOST", "from_line": 7, "to_line": 7 }
+      ],
+      "added": [
+        { "key": "REDIS_URL", "line": 12 }
+      ],
+      "extra": [
+        { "key": "LOCAL_DEBUG", "from_line": 6, "to_line": 18 }
+      ],
+      "target_only_comments": 2
+    }
+  ]
+}
+```
+
+| Field | Values |
+|-------|--------|
+| `mode` | `write`, `dry-run` or `check` |
+| `aligned` | Whether every file already matched **before** this run, so a run that wrote something says `false` |
+| `status` | `aligned` (nothing to do), `written`, or `out-of-alignment` (under `--check` and `--dry-run`) |
+
+On exit `2` stdout is empty and the error is on stderr, so branch on the exit code before
+reading the report.
+
+---
+
+## What it refuses
+
+Each of these stops the run with exit `2`, and **no file is written**, including the other
+files named in the same run. Guessing here could lose something, so evnx asks you to decide.
+
+### A key assigned twice
+
+```text
+Error: nothing was aligned and no file was written:
+  ./.env: line 1: DB_HOST is assigned more than once (lines 1, 2); keep one
+```
+
+The same applies to the template, whose own problems are reported first.
+
+### A line that will not parse
+
+```text
+Error: nothing was aligned and no file was written:
+  ./.env: line 2: not an assignment, comment or blank line (no '=')
+```
+
+A key that is not a valid name is reported as `invalid key name (not shown)`. evnx does not
+repeat it, because a broken line is often a pasted secret.
+
+### More copies of a template comment than the template has
+
+```text
+Error: nothing was aligned and no file was written:
+  ./.env: line 1: this comment also appears in the reference, and this file has 2 copies of it to the reference's 1, so which one is this file's own cannot be decided; edit or remove a copy
+```
+
+### Mixed line endings
+
+```text
+Error: nothing was aligned and no file was written:
+  ./.env: mixed line endings (1 CRLF, 1 LF); convert the file to one style first
+```
+
+Only the file being aligned is checked for this. The template's own line endings are never
+written, so mixing them there does no harm.
+
+### The same file under two names
+
+```text
+Error: ./link.env is the same file as the reference ./.env.example (by path, symlink or hard link). Nothing was written.
+```
+
+Two `--env` values that are the same file are refused the same way.
+
+---
+
+## How files are written
+
+- Every file named is read and checked before any is written, and a file already aligned is
+  not opened for writing.
+- Each file is written to a temporary file beside it and renamed into place, so an
+  interrupted run leaves the old file or the new one, never half of either.
+- A file that changed after evnx read it is not overwritten: that file and any after it stop
+  with an error.
+- A file keeps its mode. One that other users can read gets the usual warning, and evnx
+  does not change it:
+
+  ```text
+  ! .env is readable by other users (mode 644); evnx keeps the mode you set
+       →  chmod 600 .env
+  ```
+
+- A symlink is written through to its target, and the link stays.
+- CRLF or LF, whether the last line ends in a newline, and a UTF-8 byte-order mark are all
+  kept. A multiline value keeps its lines exactly.
+
+<Callout type="warning">
+**Several files are not one transaction.** Each replacement is atomic, the set is not. If
+replacing the second of two files fails, the first has already changed. The error names the
+files that were written and the ones that were not, and running `evnx align` again finishes
+the job.
+</Callout>
+
+<Callout type="info">
+A **hard link** to a file you align keeps the old content, because the new file replaces the
+name you gave and not the data the other link points to. The same is true of editors that
+save atomically.
+</Callout>
+
+---
+
+## Security
+
+Normal output, `--dry-run`, `--check`, `--format json` and every error name files, keys,
+line numbers and statuses only. They never print a value, a comment or a source line, and
+there is no option that reveals them.
+
+Values are never expanded or rewritten, either. evnx reads an assignment only far enough to
+find where it ends, and expansion is off, so a `${VAR}` that refers to something outside the
+file is not an error.
+
+---
+
+## Troubleshooting
+
+### `.env` or the template not found
+
+```text
+Error: nothing was aligned and no file was written:
+  ./.env does not exist
+```
+
+Exit `2`. `align` never creates a file. Start one with
+[`evnx sync --direction reverse`](/guides/commands/sync) or
+[`evnx init`](/guides/commands/init), then align it. A missing template reads
+`reference ./.env.example does not exist`.
+
+### An unknown `--env-name`
+
+```text
+Error: .env.staging does not exist
+
+Available: production
+```
+
+Exit `2`, before anything is read.
+
+### A comment appeared twice
+
+A comment that differs from the template's in more than surrounding whitespace is treated
+as your own, so it stays beside the template's copy. Delete the one you no longer want. The
+next run keeps the file as you left it.
+
+---
+
+## See also
+
+- [`evnx sync`](/guides/commands/sync): add the names a file lacks, with placeholder values
+- [`evnx diff`](/guides/commands/diff): compare two environments, values included
+- [`evnx parse`](/guides/commands/parse): what evnx reads from a file, line by line
+- [`evnx spec`](/guides/commands/spec): declare what each variable is
