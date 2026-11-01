@@ -1,7 +1,130 @@
 {
   "_comment": "GENERATED — do not hand-edit. Run `pnpm changelog:sync` to refresh from the CLI's CHANGELOG.md.",
-  "latest": "0.11.0",
+  "latest": "0.12.0",
   "releases": [
+    {
+      "version": "0.12.0",
+      "date": "2026-11-01",
+      "summary": "**Why 0.12.0 and not 0.11.1:** new commands (`evnx parse`, `update --list`), and output that scripts read changes: `doctor`'s syntax messages, `validate --format json`'s `\"location\"`, and `cloud pull` exiting 4 when declined. In `0.x` either one is a minor bump.",
+      "highlights": [
+        {
+          "type": "feature",
+          "text": "`evnx update --list`: every copy of evnx on this machine"
+        },
+        {
+          "type": "feature",
+          "text": "Plain `update` and `--check` mention other copies"
+        },
+        {
+          "type": "feature",
+          "text": "The install script leaves a receipt"
+        },
+        {
+          "type": "feature",
+          "text": "npm and Homebrew warn about a shadowing copy."
+        },
+        {
+          "type": "feature",
+          "text": "`EVNX_MASTER_PASSWORD` unlocks vaults without a prompt"
+        },
+        {
+          "type": "feature",
+          "text": "`template` reads a template once, left to right"
+        },
+        {
+          "type": "feature",
+          "text": "`validate` and `doctor` warn about a carriage return inside a value"
+        },
+        {
+          "type": "feature",
+          "text": "`validate` and `doctor` report a NUL byte in a value as an error"
+        },
+        {
+          "type": "feature",
+          "text": "`validate` and `doctor` warn about a value Docker Compose reads differently because of the order of the file"
+        },
+        {
+          "type": "feature",
+          "text": "`evnx parse`: what evnx reads from a `.env`"
+        },
+        {
+          "type": "feature",
+          "text": "`validate --env -` reads stdin, and `--input-format json` reads JSON"
+        },
+        {
+          "type": "feature",
+          "text": "`validate` warns about `$$` in a project Docker Compose reads"
+        },
+        {
+          "type": "improvement",
+          "text": "`cloud pull` and `restore` ask the same question the same way"
+        },
+        {
+          "type": "improvement",
+          "text": "Library: `Issue.severity` is a `Severity` enum and `Issue.issue_type` an `IssueType`"
+        },
+        {
+          "type": "improvement",
+          "text": "A refused key says why"
+        },
+        {
+          "type": "improvement",
+          "text": "`validate` lists every problem in a file that does not parse"
+        },
+        {
+          "type": "improvement",
+          "text": "A classifier corpus"
+        },
+        {
+          "type": "improvement",
+          "text": "`scripts/run-doc-examples.py <evnx> <evnx-web>`"
+        },
+        {
+          "type": "improvement",
+          "text": "Cloud tests against a real server."
+        },
+        {
+          "type": "fix",
+          "text": "`validate` on stdin or JSON no longer offers `--fix`."
+        },
+        {
+          "type": "fix",
+          "text": "`restore` names every path the same way."
+        },
+        {
+          "type": "fix",
+          "text": "`parse --format json` reports `\"file\": \"./.env\"`"
+        },
+        {
+          "type": "fix",
+          "text": "`export =v` and a bare `export` say `` `export` is followed by no key ``"
+        },
+        {
+          "type": "fix",
+          "text": "Text after a closing quote is counted, not quoted, in the error"
+        },
+        {
+          "type": "fix",
+          "text": "`${VAR:-default}` and its siblings are read as Docker Compose reads them"
+        },
+        {
+          "type": "fix",
+          "text": "A `.env` that starts with a UTF-8 byte-order mark is read"
+        },
+        {
+          "type": "fix",
+          "text": "A line inside a multiline value is no longer read as an assignment"
+        },
+        {
+          "type": "fix",
+          "text": "`doctor` and `validate` name three or more readers in one list."
+        }
+      ],
+      "type": "minor",
+      "links": {
+        "github": "https://github.com/urwithajit9/evnx/compare/v0.11.0...v0.12.0"
+      }
+    },
     {
       "version": "0.11.0",
       "date": "2026-10-29",
