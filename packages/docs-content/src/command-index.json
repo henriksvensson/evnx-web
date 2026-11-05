@@ -42,6 +42,16 @@
       ]
     },
     {
+      "name": "remove",
+      "about": "Remove variables from the env file, and the template and contract too",
+      "aliases": [
+        "rm"
+      ],
+      "guide": null,
+      "guide_draft": false,
+      "subcommands": []
+    },
+    {
       "name": "validate",
       "about": "Check .env against .env.example, find issues",
       "aliases": [],
@@ -461,7 +471,9 @@
       "subcommands": []
     }
   ],
-  "undocumented": [],
+  "undocumented": [
+    "remove"
+  ],
   "unshown_subcommands": [],
   "orphan_guides": []
 }

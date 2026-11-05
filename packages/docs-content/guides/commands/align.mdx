@@ -8,7 +8,7 @@ excerpt: "Reference for evnx align: give every .env the sections, comments and k
 difficulty: beginner
 timeToComplete: "5 minutes"
 tags: ["align", "layout", "reference", "cli", "env"]
-commands: ["align", "diff", "init", "parse", "spec", "sync"]
+commands: ["align", "diff", "init", "parse", "remove", "spec", "sync"]
 evnxVersion: "0.13.0"
 prerequisites:
   - getting-started/installation
@@ -43,6 +43,7 @@ evnx align [OPTIONS]
 | `-n`, `--dry-run` | off | Report what would change; writes nothing, exits `0` whether or not a file would change |
 | `--check` | off | Report the verdict through the [exit code](#exit-codes); writes nothing. Wins over `--dry-run` if both are given |
 | `--format <FMT>` | `pretty` | `json`, in any mode. See [JSON output](#machine-readable-output) |
+| `--no-backup` | off | Keep no `.bak` copy of a file before replacing it. See [How files are written](#how-files-are-written) |
 | `-v`, `--verbose` | off | Accepted, but `align` prints the same either way |
 | `-q`, `--quiet` | off | Print nothing on success; drift, warnings and errors still print |
 | `--no-color` | off | Plain output (as does `NO_COLOR`) |
@@ -299,6 +300,7 @@ evnx align --env .env.development --check --format json
 | `mode` | `write`, `dry-run` or `check` |
 | `aligned` | Whether every file already matched **before** this run, so a run that wrote something says `false` |
 | `status` | `aligned` (nothing to do), `written`, or `out-of-alignment` (under `--check` and `--dry-run`) |
+| `backup` | The `.bak` kept before this file was replaced, or `null` |
 
 On exit `2` stdout is empty and the error is on stderr, so branch on the exit code before
 reading the report.
@@ -354,6 +356,17 @@ Error: ./link.env is the same file as the reference ./.env.example (by path, sym
 
 Two `--env` values that are the same file are refused the same way.
 
+### A backup git would see
+
+```text
+Error: nothing was aligned and no file was written:
+  ./.env would be backed up to ./.env.bak, which .gitignore does not cover, so `git add` would take a copy of its secrets. Add `.env.bak*` to .gitignore, or pass --no-backup.
+```
+
+A `.gitignore` that covers `.env` often does not cover `.env.bak`. `--dry-run` reports the
+same thing as a warning, beginning `a real run would refuse:`, and writes nothing. Outside a
+git repository there is nothing to check.
+
 ---
 
 ## How files are written
@@ -362,8 +375,12 @@ Two `--env` values that are the same file are refused the same way.
   not opened for writing.
 - Each file is written to a temporary file beside it and renamed into place, so an
   interrupted run leaves the old file or the new one, never half of either.
-- A file that changed after evnx read it is not overwritten: that file and any after it stop
-  with an error.
+- A file that changes is first kept as `.bak` beside it, or `.bak.2` and onwards when one
+  exists, with the same mode, as `evnx remove` does. The report
+  names it (`backup  ./.env.bak`). `--no-backup` skips it. A file already aligned gets no
+  backup, so running `align` often does not pile them up.
+- A file is replaced only if it still holds what evnx read. One edited during the run is
+  left as it is.
 - A file keeps its mode. One that other users can read gets the usual warning, and evnx
   does not change it:
 
@@ -376,11 +393,18 @@ Two `--env` values that are the same file are refused the same way.
 - CRLF or LF, whether the last line ends in a newline, and a UTF-8 byte-order mark are all
   kept. A multiline value keeps its lines exactly.
 
+If replacing a file fails, the files already replaced are put back as they were, and the
+error says which were put back and which were not reached:
+
+```text
+  ./.env.test was not changed.
+  Put back as they were: ./.env.development.
+```
+
 <Callout type="warning">
-**Several files are not one transaction.** Each replacement is atomic, the set is not. If
-replacing the second of two files fails, the first has already changed. The error names the
-files that were written and the ones that were not, and running `evnx align` again finishes
-the job.
+**It is not a transaction.** Another program can see the first file aligned before the last
+one is, and a crash between two files leaves the first one changed. Each file on its own is
+replaced atomically, and its `.bak` holds the original.
 </Callout>
 
 <Callout type="info">
