@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "evnx_version": "0.14.0",
+  "evnx_version": "0.14.1",
   "features": [
     "net",
     "migrate",
@@ -141,6 +141,14 @@
       "about": "Keep .env and .env.example in sync",
       "aliases": [],
       "guide": "/guides/commands/sync",
+      "guide_draft": false,
+      "subcommands": []
+    },
+    {
+      "name": "align",
+      "about": "Give .env files the template's sections, comments and key order, keeping their values",
+      "aliases": [],
+      "guide": "/guides/commands/align",
       "guide_draft": false,
       "subcommands": []
     },
